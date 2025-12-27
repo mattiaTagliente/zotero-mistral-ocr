@@ -1,0 +1,17 @@
+# Build artifacts
+*.xpi
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Temporary files
+*.bak
+*.tmp

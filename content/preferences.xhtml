@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE window>
+<window
+    xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+    xmlns:html="http://www.w3.org/1999/xhtml"
+    title="Mistral OCR Settings"
+    onload="MistralOCRPrefs.init();"
+    onunload="MistralOCRPrefs.cleanup();"
+    width="500"
+    height="400">
+
+    <script type="application/javascript">
+    <![CDATA[
+        var MistralOCRPrefs = {
+            plugin: null,
+
+            init: function() {
+                // Get plugin reference from window arguments
+                if (window.arguments && window.arguments[0] && window.arguments[0].plugin) {
+                    this.plugin = window.arguments[0].plugin;
+                }
+
+                // Load current preferences
+                this.loadPrefs();
+            },
+
+            cleanup: function() {
+                this.plugin = null;
+            },
+
+            getPref: function(name) {
+                try {
+                    const branch = Services.prefs.getBranch("extensions.mistral-ocr.");
+                    const type = branch.getPrefType(name);
+                    switch (type) {
+                        case Services.prefs.PREF_STRING:
+                            return branch.getCharPref(name);
+                        case Services.prefs.PREF_INT:
+                            return branch.getIntPref(name);
+                        case Services.prefs.PREF_BOOL:
+                            return branch.getBoolPref(name);
+                        default:
+                            return null;
+                    }
+                } catch (e) {
+                    return null;
+                }
+            },
+
+            setPref: function(name, value) {
+                const branch = Services.prefs.getBranch("extensions.mistral-ocr.");
+                if (typeof value === "string") {
+                    branch.setCharPref(name, value);
+                } else if (typeof value === "number") {
+                    branch.setIntPref(name, value);
+                } else if (typeof value === "boolean") {
+                    branch.setBoolPref(name, value);
+                }
+            },
+
+            loadPrefs: function() {
+                document.getElementById("serverHost").value = this.getPref("serverHost") || "127.0.0.1";
+                document.getElementById("serverPort").value = this.getPref("serverPort") || 8080;
+                document.getElementById("mistralApiKey").value = this.getPref("mistralApiKey") || "";
+                document.getElementById("autoStartServer").checked = this.getPref("autoStartServer") !== false;
+                document.getElementById("pythonPath").value = this.getPref("pythonPath") || "";
+            },
+
+            savePrefs: function() {
+                this.setPref("serverHost", document.getElementById("serverHost").value);
+                this.setPref("serverPort", parseInt(document.getElementById("serverPort").value) || 8080);
+                this.setPref("mistralApiKey", document.getElementById("mistralApiKey").value);
+                this.setPref("autoStartServer", document.getElementById("autoStartServer").checked);
+                this.setPref("pythonPath", document.getElementById("pythonPath").value);
+
+                this.showMessage("Settings saved successfully!", "success");
+            },
+
+            testConnection: async function() {
+                const host = document.getElementById("serverHost").value || "127.0.0.1";
+                const port = document.getElementById("serverPort").value || 8080;
+                const url = `http://${host}:${port}/health`;
+
+                const statusLabel = document.getElementById("connectionStatus");
+                statusLabel.value = "Testing connection...";
+                statusLabel.style.color = "#666";
+
+                try {
+                    const response = await fetch(url, {
+                        method: "GET",
+                        headers: { "Accept": "application/json" }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.status === "ok") {
+                            statusLabel.value = "Connected! Server version: " + (data.version || "unknown");
+                            statusLabel.style.color = "green";
+                        } else {
+                            statusLabel.value = "Server responded but status is not OK";
+                            statusLabel.style.color = "orange";
+                        }
+                    } else {
+                        statusLabel.value = "Server returned error: " + response.status;
+                        statusLabel.style.color = "red";
+                    }
+                } catch (e) {
+                    statusLabel.value = "Connection failed: " + e.message;
+                    statusLabel.style.color = "red";
+                }
+            },
+
+            showMessage: function(message, type) {
+                const statusLabel = document.getElementById("connectionStatus");
+                statusLabel.value = message;
+                statusLabel.style.color = type === "success" ? "green" : "red";
+            },
+
+            closeDialog: function() {
+                window.close();
+            }
+        };
+    ]]>
+    </script>
+
+    <vbox flex="1" style="padding: 15px;">
+        <!-- API Configuration Section -->
+        <groupbox>
+            <label class="header"><html:strong>API Configuration</html:strong></label>
+            <vbox style="padding: 10px;">
+                <hbox align="center" style="margin-bottom: 10px;">
+                    <label value="Mistral API Key:" style="width: 150px;"/>
+                    <textbox id="mistralApiKey" type="password" flex="1"
+                             placeholder="Enter your Mistral API key from console.mistral.ai"/>
+                </hbox>
+                <description style="font-size: 11px; color: #666; margin-left: 150px;">
+                    Get your API key from https://console.mistral.ai
+                </description>
+            </vbox>
+        </groupbox>
+
+        <!-- Server Configuration Section -->
+        <groupbox style="margin-top: 15px;">
+            <label class="header"><html:strong>Server Configuration</html:strong></label>
+            <vbox style="padding: 10px;">
+                <hbox align="center" style="margin-bottom: 10px;">
+                    <label value="Server Host:" style="width: 150px;"/>
+                    <textbox id="serverHost" flex="1" value="127.0.0.1"/>
+                </hbox>
+                <hbox align="center" style="margin-bottom: 10px;">
+                    <label value="Server Port:" style="width: 150px;"/>
+                    <textbox id="serverPort" type="number" flex="1" value="8080"/>
+                </hbox>
+                <hbox align="center" style="margin-bottom: 10px;">
+                    <checkbox id="autoStartServer" label="Auto-start server when needed"/>
+                </hbox>
+                <hbox align="center" style="margin-bottom: 10px;">
+                    <label value="Python Path:" style="width: 150px;"/>
+                    <textbox id="pythonPath" flex="1"
+                             placeholder="Leave empty to use 'python' from PATH"/>
+                </hbox>
+                <description style="font-size: 11px; color: #666; margin-left: 150px;">
+                    Path to Python executable (e.g., C:\Python311\python.exe)
+                </description>
+            </vbox>
+        </groupbox>
+
+        <!-- Connection Test Section -->
+        <groupbox style="margin-top: 15px;">
+            <label class="header"><html:strong>Connection Test</html:strong></label>
+            <vbox style="padding: 10px;">
+                <hbox align="center">
+                    <button label="Test Connection" oncommand="MistralOCRPrefs.testConnection();"/>
+                    <label id="connectionStatus" value="" style="margin-left: 15px;"/>
+                </hbox>
+            </vbox>
+        </groupbox>
+
+        <!-- Spacer -->
+        <spacer flex="1"/>
+
+        <!-- Buttons -->
+        <hbox pack="end" style="margin-top: 15px;">
+            <button label="Save" oncommand="MistralOCRPrefs.savePrefs();"/>
+            <button label="Close" oncommand="MistralOCRPrefs.closeDialog();" style="margin-left: 10px;"/>
+        </hbox>
+    </vbox>
+</window>
