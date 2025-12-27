@@ -1,3 +1,6 @@
+<vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+      xmlns:html="http://www.w3.org/1999/xhtml">
+
 <groupbox id="mistral-ocr-prefs-api-section">
     <label><html:h2>API Configuration</html:h2></label>
     <hbox align="center">
@@ -62,7 +65,7 @@
     </hbox>
 </groupbox>
 
-<script>
+<script type="application/javascript">
 <![CDATA[
 var MistralOCR_Prefs = {
     testConnection: async function() {
@@ -72,7 +75,7 @@ var MistralOCR_Prefs = {
 
         const host = hostInput.value || '127.0.0.1';
         const port = portInput.value || 8080;
-        const url = `http://${host}:${port}/health`;
+        const url = 'http://' + host + ':' + port + '/health';
 
         statusLabel.value = 'Testing...';
         statusLabel.style.color = '#666';
@@ -104,3 +107,5 @@ var MistralOCR_Prefs = {
 };
 ]]>
 </script>
+
+</vbox>
