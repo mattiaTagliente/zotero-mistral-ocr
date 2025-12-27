@@ -33,6 +33,7 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
         rootURI: rootURI,
         menuId: "mistral-ocr-menu-process",
         serverProcess: null,
+        prefsPaneId: null,
 
         // Get preference value
         getPref: function(name) {
@@ -82,69 +83,76 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
             // Get Mistral API key from preferences
             const apiKey = this.getPref("mistralApiKey");
             if (!apiKey) {
-                this.showError("Mistral API key not configured. Please set it in Tools > Mistral OCR Settings.");
+                this.showError("Mistral API key not configured.\n\nPlease go to:\nEdit > Settings > Mistral OCR\n\nAnd enter your API key from console.mistral.ai");
                 return false;
             }
 
             try {
-                // Try to start the server using the CLI command
-                const pythonPath = this.getPref("pythonPath") || "python";
-
-                // Use Zotero's subprocess utility to run the server
-                // The server will run with environment variables set
-                const env = {
-                    "MISTRAL_API_KEY": apiKey,
-                    "ZOTERO_LOCAL": "true"
-                };
-
-                // For Windows, we need to spawn the process differently
-                const isWin = Zotero.isWin;
-
-                if (isWin) {
-                    // On Windows, use cmd to spawn the server in background
-                    const startScript = `
-                        import os
-                        import sys
-                        os.environ["MISTRAL_API_KEY"] = "${apiKey.replace(/"/g, '\\"')}"
-                        os.environ["ZOTERO_LOCAL"] = "true"
-                        from mistral_ocr_zotero.server import main
-                        main()
-                    `;
-
-                    // Write a temporary Python script
-                    const tempDir = Zotero.getTempDirectory().path;
-                    const scriptPath = OS.Path.join(tempDir, "mistral_ocr_start.py");
-                    await Zotero.File.putContentsAsync(scriptPath, startScript);
-
-                    // Start the server process in background
-                    Zotero.Utilities.Internal.exec(pythonPath, [scriptPath], {
-                        background: true,
-                        noWait: true
-                    }).catch(e => log("Server process error: " + e));
-                } else {
-                    // On Unix-like systems
-                    const args = ["-m", "mistral_ocr_zotero.server"];
-                    Zotero.Utilities.Internal.exec(pythonPath, args, {
-                        background: true,
-                        noWait: true,
-                        env: env
-                    }).catch(e => log("Server process error: " + e));
+                // Get Python path from preferences or use default
+                let pythonPath = this.getPref("pythonPath");
+                if (!pythonPath) {
+                    // Try common Python paths on Windows
+                    pythonPath = "python";
                 }
 
-                // Wait for server to start
-                for (let i = 0; i < 10; i++) {
+                log("Starting server with Python: " + pythonPath);
+
+                // Create a temporary Python script to start the server
+                const tempDir = Zotero.getTempDirectory().path;
+                const scriptPath = OS.Path.join(tempDir, "mistral_ocr_start.py");
+
+                // Escape backslashes and quotes in API key for Python string
+                const escapedApiKey = apiKey.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
+                const startScript = `
+import os
+import sys
+
+# Set environment variables
+os.environ["MISTRAL_API_KEY"] = "${escapedApiKey}"
+os.environ["ZOTERO_LOCAL"] = "true"
+
+# Start the server
+try:
+    from mistral_ocr_zotero.server import main
+    main()
+except ImportError as e:
+    print(f"Error: Could not import mistral_ocr_zotero: {e}", file=sys.stderr)
+    print("Please install with: pip install mistral-ocr-zotero", file=sys.stderr)
+    sys.exit(1)
+`;
+
+                await Zotero.File.putContentsAsync(scriptPath, startScript);
+
+                // Start the server process in background using Zotero's subprocess
+                const startInfo = {
+                    command: pythonPath,
+                    arguments: [scriptPath],
+                    workdir: tempDir
+                };
+
+                // Use subprocess to start Python in background
+                Zotero.Utilities.Internal.subprocess(startInfo).catch(e => {
+                    log("Server subprocess error (may be normal if process continues): " + e);
+                });
+
+                // Wait for server to start (up to 15 seconds)
+                log("Waiting for server to start...");
+                for (let i = 0; i < 15; i++) {
                     await Zotero.Promise.delay(1000);
                     if (await this.checkServer()) {
-                        log("Server started successfully");
+                        log("Server started successfully after " + (i + 1) + " seconds");
                         return true;
                     }
+                    log("Server not ready yet, attempt " + (i + 1));
                 }
 
                 log("Server failed to start within timeout");
+                this.showError("OCR server failed to start within 15 seconds.\n\nPlease check:\n1. Python is installed and in PATH\n2. mistral-ocr-zotero package is installed\n3. Check Zotero debug log for details");
                 return false;
             } catch (e) {
                 log("Failed to start server: " + e.message);
-                this.showError("Failed to start OCR server: " + e.message);
+                this.showError("Failed to start OCR server:\n\n" + e.message);
                 return false;
             }
         },
@@ -191,20 +199,16 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
                 "Connecting to OCR server..."
             );
 
-            // Check/start server
+            // Check/start server (auto-start is always enabled now)
             let serverRunning = await this.checkServer();
 
             if (!serverRunning) {
                 itemProgress.setText("Starting OCR server...");
-                const autoStart = this.getPref("autoStartServer");
-
-                if (autoStart) {
-                    serverRunning = await this.startServer();
-                }
+                serverRunning = await this.startServer();
 
                 if (!serverRunning) {
                     itemProgress.setIcon("chrome://zotero/skin/cross.png");
-                    itemProgress.setText("OCR server not available. Please start it manually or configure auto-start.");
+                    itemProgress.setText("Failed to start OCR server");
                     progressWindow.startCloseTimer(8000);
                     return;
                 }
@@ -339,63 +343,37 @@ async function startup({ id, version, resourceURI, rootURI }, reason) {
             }
         },
 
-        // Add preferences menu item
-        addPrefsMenuItem: function(doc) {
-            const toolsMenu = doc.getElementById("menu_ToolsPopup");
-            if (!toolsMenu) {
-                log("Could not find Tools menu");
-                return;
+        // Register preferences pane
+        registerPrefsPane: async function() {
+            log("Registering preferences pane");
+            try {
+                this.prefsPaneId = await Zotero.PreferencePanes.register({
+                    pluginID: this.id,
+                    src: this.rootURI + "content/preferences.xhtml",
+                    label: "Mistral OCR",
+                    image: this.rootURI + "content/icons/icon.svg"
+                });
+                log("Preferences pane registered with ID: " + this.prefsPaneId);
+            } catch (e) {
+                log("Failed to register preferences pane: " + e);
             }
-
-            // Remove existing if present
-            const existing = doc.getElementById("mistral-ocr-prefs-menuitem");
-            if (existing) {
-                existing.remove();
-            }
-
-            // Create menu item
-            const menuItem = doc.createXULElement("menuitem");
-            menuItem.id = "mistral-ocr-prefs-menuitem";
-            menuItem.setAttribute("label", "Mistral OCR Settings...");
-            menuItem.addEventListener("command", () => this.openPreferences());
-
-            toolsMenu.appendChild(menuItem);
-            log("Preferences menu item added");
-        },
-
-        // Remove preferences menu item
-        removePrefsMenuItem: function(doc) {
-            const menuItem = doc.getElementById("mistral-ocr-prefs-menuitem");
-            if (menuItem) {
-                menuItem.remove();
-            }
-        },
-
-        // Open preferences dialog
-        openPreferences: function() {
-            const win = Services.wm.getMostRecentWindow("navigator:browser");
-            win.openDialog(
-                this.rootURI + "content/preferences.xhtml",
-                "mistral-ocr-preferences",
-                "chrome,titlebar,toolbar,centerscreen,modal",
-                { plugin: this }
-            );
         },
 
         // Initialize on window load
         onMainWindowLoad: function({ window }) {
             log("Main window loaded");
             this.addMenuItem(window.document);
-            this.addPrefsMenuItem(window.document);
         },
 
         // Cleanup on window unload
         onMainWindowUnload: function({ window }) {
             log("Main window unloaded");
             this.removeMenuItem(window.document);
-            this.removePrefsMenuItem(window.document);
         }
     };
+
+    // Register preferences pane
+    await MistralOCR.registerPrefsPane();
 
     // Register window listeners
     Zotero.getMainWindows().forEach(win => {
@@ -425,6 +403,11 @@ function shutdown({ id, version, resourceURI, rootURI }, reason) {
     log("Plugin shutting down");
 
     if (MistralOCR) {
+        // Unregister preferences pane
+        if (MistralOCR.prefsPaneId) {
+            Zotero.PreferencePanes.unregister(MistralOCR.prefsPaneId);
+        }
+
         // Cleanup windows
         Zotero.getMainWindows().forEach(win => {
             MistralOCR.onMainWindowUnload({ window: win });
@@ -439,6 +422,5 @@ function registerPrefs() {
     branch.setCharPref("serverHost", "127.0.0.1");
     branch.setIntPref("serverPort", 8080);
     branch.setCharPref("mistralApiKey", "");
-    branch.setBoolPref("autoStartServer", true);
     branch.setCharPref("pythonPath", "");
 }
