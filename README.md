@@ -25,14 +25,14 @@ pip install mistral-ocr-zotero
 
 Or install from source:
 ```bash
-git clone https://github.com/yourusername/mistral-ocr-zotero.git
+git clone https://github.com/mattiaTagliente/mistral-ocr-zotero.git
 cd mistral-ocr-zotero
 pip install -e .
 ```
 
 ### 2. Install the Zotero Plugin
 
-1. Download the latest `zotero-mistral-ocr.xpi` from [Releases](https://github.com/yourusername/zotero-mistral-ocr/releases)
+1. Download the latest `zotero-mistral-ocr.xpi` from [Releases](https://github.com/mattiaTagliente/zotero-mistral-ocr/releases)
 2. In Zotero, go to **Tools > Add-ons**
 3. Click the gear icon and select **Install Add-on From File...**
 4. Select the downloaded `.xpi` file
@@ -114,4 +114,4 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ## Related Projects
 
-- [mistral-ocr-zotero](https://github.com/yourusername/mistral-ocr-zotero) - Python package for Mistral OCR integration with Zotero
+- [mistral-ocr-zotero](https://github.com/mattiaTagliente/mistral-ocr-zotero) - Python package for Mistral OCR integration with Zotero
