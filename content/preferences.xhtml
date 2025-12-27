@@ -1,176 +1,106 @@
-<?xml version="1.0"?>
-<!DOCTYPE html>
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <title>Mistral OCR Settings</title>
-    <style>
-        .preference-section {
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-        }
-        .preference-section h2 {
-            margin-top: 0;
-            margin-bottom: 15px;
-            font-size: 14px;
-            font-weight: bold;
-        }
-        .preference-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .preference-row label {
-            width: 150px;
-            flex-shrink: 0;
-        }
-        .preference-row input[type="text"],
-        .preference-row input[type="password"],
-        .preference-row input[type="number"] {
-            flex: 1;
-            padding: 5px;
-            min-width: 200px;
-        }
-        .preference-description {
-            font-size: 11px;
-            color: #666;
-            margin-left: 150px;
-            margin-top: 2px;
-            margin-bottom: 10px;
-        }
-        .button-row {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        #connectionStatus {
-            margin-left: 10px;
-        }
-        .status-success { color: green; }
-        .status-error { color: red; }
-        .status-pending { color: #666; }
-    </style>
-    <script type="application/javascript">
-    <![CDATA[
-        // Initialize when document is ready
-        document.addEventListener("DOMContentLoaded", function() {
-            MistralOCRPrefs.init();
-        });
+<groupbox id="mistral-ocr-prefs-api-section">
+    <label><html:h2>API Configuration</html:h2></label>
+    <hbox align="center">
+        <label value="Mistral API Key:" style="width: 120px;"/>
+        <html:input
+            type="password"
+            id="mistral-ocr-pref-apikey"
+            preference="extensions.mistral-ocr.mistralApiKey"
+            style="flex: 1; min-width: 300px;"
+            placeholder="Enter your Mistral API key"
+        />
+    </hbox>
+    <description style="margin-left: 120px; font-size: 11px; color: #666;">
+        Get your API key from console.mistral.ai
+    </description>
+</groupbox>
 
-        var MistralOCRPrefs = {
-            init: function() {
-                this.loadPrefs();
-            },
+<groupbox id="mistral-ocr-prefs-server-section">
+    <label><html:h2>Server Configuration</html:h2></label>
+    <hbox align="center">
+        <label value="Server Host:" style="width: 120px;"/>
+        <html:input
+            type="text"
+            id="mistral-ocr-pref-host"
+            preference="extensions.mistral-ocr.serverHost"
+            style="width: 200px;"
+        />
+    </hbox>
+    <hbox align="center" style="margin-top: 5px;">
+        <label value="Server Port:" style="width: 120px;"/>
+        <html:input
+            type="number"
+            id="mistral-ocr-pref-port"
+            preference="extensions.mistral-ocr.serverPort"
+            style="width: 100px;"
+        />
+    </hbox>
+    <hbox align="center" style="margin-top: 5px;">
+        <label value="Python Path:" style="width: 120px;"/>
+        <html:input
+            type="text"
+            id="mistral-ocr-pref-python"
+            preference="extensions.mistral-ocr.pythonPath"
+            style="flex: 1; min-width: 300px;"
+            placeholder="Leave empty to use 'python' from PATH"
+        />
+    </hbox>
+    <description style="margin-left: 120px; font-size: 11px; color: #666;">
+        The OCR server will auto-start when needed.
+    </description>
+</groupbox>
 
-            getPref: function(name) {
-                try {
-                    return Zotero.Prefs.get("extensions.mistral-ocr." + name, true);
-                } catch (e) {
-                    return null;
+<groupbox id="mistral-ocr-prefs-test-section">
+    <label><html:h2>Connection Test</html:h2></label>
+    <hbox align="center">
+        <button
+            id="mistral-ocr-test-btn"
+            label="Test Connection"
+            oncommand="MistralOCR_Prefs.testConnection()"
+        />
+        <label id="mistral-ocr-connection-status" value="" style="margin-left: 10px;"/>
+    </hbox>
+</groupbox>
+
+<script>
+<![CDATA[
+var MistralOCR_Prefs = {
+    testConnection: async function() {
+        const statusLabel = document.getElementById('mistral-ocr-connection-status');
+        const hostInput = document.getElementById('mistral-ocr-pref-host');
+        const portInput = document.getElementById('mistral-ocr-pref-port');
+
+        const host = hostInput.value || '127.0.0.1';
+        const port = portInput.value || 8080;
+        const url = `http://${host}:${port}/health`;
+
+        statusLabel.value = 'Testing...';
+        statusLabel.style.color = '#666';
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'ok') {
+                    statusLabel.value = 'Connected! Version: ' + (data.version || 'unknown');
+                    statusLabel.style.color = 'green';
+                } else {
+                    statusLabel.value = 'Server responded but status not OK';
+                    statusLabel.style.color = 'orange';
                 }
-            },
-
-            setPref: function(name, value) {
-                try {
-                    Zotero.Prefs.set("extensions.mistral-ocr." + name, value, true);
-                } catch (e) {
-                    Zotero.debug("Mistral OCR: Failed to set pref " + name + ": " + e);
-                }
-            },
-
-            loadPrefs: function() {
-                document.getElementById("serverHost").value = this.getPref("serverHost") || "127.0.0.1";
-                document.getElementById("serverPort").value = this.getPref("serverPort") || 8080;
-                document.getElementById("mistralApiKey").value = this.getPref("mistralApiKey") || "";
-                document.getElementById("pythonPath").value = this.getPref("pythonPath") || "";
-            },
-
-            savePrefs: function() {
-                this.setPref("serverHost", document.getElementById("serverHost").value);
-                this.setPref("serverPort", parseInt(document.getElementById("serverPort").value) || 8080);
-                this.setPref("mistralApiKey", document.getElementById("mistralApiKey").value);
-                this.setPref("pythonPath", document.getElementById("pythonPath").value);
-
-                this.showStatus("Settings saved!", "success");
-            },
-
-            testConnection: async function() {
-                const host = document.getElementById("serverHost").value || "127.0.0.1";
-                const port = document.getElementById("serverPort").value || 8080;
-                const url = `http://${host}:${port}/health`;
-
-                this.showStatus("Testing connection...", "pending");
-
-                try {
-                    const response = await fetch(url, {
-                        method: "GET",
-                        headers: { "Accept": "application/json" }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.status === "ok") {
-                            this.showStatus("Connected! Server version: " + (data.version || "unknown"), "success");
-                        } else {
-                            this.showStatus("Server responded but status is not OK", "error");
-                        }
-                    } else {
-                        this.showStatus("Server error: " + response.status, "error");
-                    }
-                } catch (e) {
-                    this.showStatus("Connection failed: " + e.message, "error");
-                }
-            },
-
-            showStatus: function(message, type) {
-                const statusEl = document.getElementById("connectionStatus");
-                statusEl.textContent = message;
-                statusEl.className = "status-" + type;
+            } else {
+                statusLabel.value = 'Server error: ' + response.status;
+                statusLabel.style.color = 'red';
             }
-        };
-    ]]>
-    </script>
-</head>
-<body>
-    <div class="preference-section">
-        <h2>API Configuration</h2>
-        <div class="preference-row">
-            <label for="mistralApiKey">Mistral API Key:</label>
-            <input type="password" id="mistralApiKey" placeholder="Enter your Mistral API key"/>
-        </div>
-        <div class="preference-description">
-            Get your API key from <a href="https://console.mistral.ai" onclick="Zotero.launchURL(this.href); return false;">console.mistral.ai</a>
-        </div>
-    </div>
-
-    <div class="preference-section">
-        <h2>Server Configuration</h2>
-        <div class="preference-row">
-            <label for="serverHost">Server Host:</label>
-            <input type="text" id="serverHost" value="127.0.0.1"/>
-        </div>
-        <div class="preference-row">
-            <label for="serverPort">Server Port:</label>
-            <input type="number" id="serverPort" value="8080"/>
-        </div>
-        <div class="preference-row">
-            <label for="pythonPath">Python Path:</label>
-            <input type="text" id="pythonPath" placeholder="Leave empty to use 'python' from PATH"/>
-        </div>
-        <div class="preference-description">
-            Path to Python executable (e.g., C:\Python311\python.exe). The server will auto-start when needed.
-        </div>
-    </div>
-
-    <div class="preference-section">
-        <h2>Connection Test</h2>
-        <div class="button-row">
-            <button onclick="MistralOCRPrefs.testConnection()">Test Connection</button>
-            <button onclick="MistralOCRPrefs.savePrefs()">Save Settings</button>
-            <span id="connectionStatus"></span>
-        </div>
-    </div>
-</body>
-</html>
+        } catch (e) {
+            statusLabel.value = 'Connection failed: ' + e.message;
+            statusLabel.style.color = 'red';
+        }
+    }
+};
+]]>
+</script>

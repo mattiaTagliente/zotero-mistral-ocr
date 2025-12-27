@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Mistral OCR",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Process PDF attachments with Mistral OCR to create high-quality markdown conversions",
   "homepage_url": "https://github.com/mattiaTagliente/zotero-mistral-ocr",
   "author": "Mattia Tagliente",
@@ -14,7 +14,7 @@
     }
   },
   "icons": {
-    "48": "content/icons/icon.svg",
-    "96": "content/icons/icon.svg"
+    "48": "content/icons/icon.png",
+    "96": "content/icons/icon.png"
   }
 }

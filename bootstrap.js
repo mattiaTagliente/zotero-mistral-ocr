@@ -351,7 +351,7 @@ except ImportError as e:
                     pluginID: this.id,
                     src: this.rootURI + "content/preferences.xhtml",
                     label: "Mistral OCR",
-                    image: this.rootURI + "content/icons/icon.svg"
+                    image: this.rootURI + "content/icons/icon.png"
                 });
                 log("Preferences pane registered with ID: " + this.prefsPaneId);
             } catch (e) {
