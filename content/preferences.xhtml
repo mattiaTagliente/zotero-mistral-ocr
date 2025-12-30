@@ -1,14 +1,42 @@
 <vbox xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
-      xmlns:html="http://www.w3.org/1999/xhtml">
+      xmlns:html="http://www.w3.org/1999/xhtml"
+      onload="MistralOCR_Prefs.init()">
+
+<groupbox id="mistral-ocr-prefs-zotero-section">
+    <label><html:h2>Zotero API Configuration</html:h2></label>
+    <hbox align="center">
+        <label value="Library ID:" style="width: 120px;"/>
+        <html:input
+            type="text"
+            id="mistral-ocr-pref-libraryid"
+            style="width: 200px;"
+            placeholder="Your Zotero user ID"
+        />
+    </hbox>
+    <description style="margin-left: 120px; font-size: 11px; color: #666;">
+        Find your user ID at zotero.org/settings/keys
+    </description>
+    <hbox align="center" style="margin-top: 5px;">
+        <label value="API Key:" style="width: 120px;"/>
+        <html:input
+            type="password"
+            id="mistral-ocr-pref-zotero-apikey"
+            style="flex: 1; min-width: 300px;"
+            placeholder="Enter your Zotero API key"
+        />
+    </hbox>
+    <description style="margin-left: 120px; font-size: 11px; color: #666;">
+        Create an API key at zotero.org/settings/keys/new (with read/write access)
+    </description>
+</groupbox>
 
 <groupbox id="mistral-ocr-prefs-api-section">
-    <label><html:h2>API Configuration</html:h2></label>
+    <label><html:h2>Mistral API Configuration</html:h2></label>
     <hbox align="center">
         <label value="Mistral API Key:" style="width: 120px;"/>
         <html:input
             type="password"
             id="mistral-ocr-pref-apikey"
-            preference="extensions.mistral-ocr.mistralApiKey"
             style="flex: 1; min-width: 300px;"
             placeholder="Enter your Mistral API key"
         />
@@ -25,7 +53,6 @@
         <html:input
             type="text"
             id="mistral-ocr-pref-host"
-            preference="extensions.mistral-ocr.serverHost"
             style="width: 200px;"
         />
     </hbox>
@@ -34,7 +61,6 @@
         <html:input
             type="number"
             id="mistral-ocr-pref-port"
-            preference="extensions.mistral-ocr.serverPort"
             style="width: 100px;"
         />
     </hbox>
@@ -43,7 +69,6 @@
         <html:input
             type="text"
             id="mistral-ocr-pref-python"
-            preference="extensions.mistral-ocr.pythonPath"
             style="flex: 1; min-width: 300px;"
             placeholder="Leave empty to use 'python' from PATH"
         />
@@ -53,59 +78,22 @@
     </description>
 </groupbox>
 
-<groupbox id="mistral-ocr-prefs-test-section">
-    <label><html:h2>Connection Test</html:h2></label>
+<groupbox id="mistral-ocr-prefs-actions-section">
+    <label><html:h2>Actions</html:h2></label>
     <hbox align="center">
+        <button
+            id="mistral-ocr-save-btn"
+            label="Save Settings"
+            oncommand="MistralOCR_Prefs.savePrefs()"
+        />
         <button
             id="mistral-ocr-test-btn"
             label="Test Connection"
             oncommand="MistralOCR_Prefs.testConnection()"
+            style="margin-left: 10px;"
         />
         <label id="mistral-ocr-connection-status" value="" style="margin-left: 10px;"/>
     </hbox>
 </groupbox>
-
-<script type="application/javascript">
-<![CDATA[
-var MistralOCR_Prefs = {
-    testConnection: async function() {
-        const statusLabel = document.getElementById('mistral-ocr-connection-status');
-        const hostInput = document.getElementById('mistral-ocr-pref-host');
-        const portInput = document.getElementById('mistral-ocr-pref-port');
-
-        const host = hostInput.value || '127.0.0.1';
-        const port = portInput.value || 8080;
-        const url = 'http://' + host + ':' + port + '/health';
-
-        statusLabel.value = 'Testing...';
-        statusLabel.style.color = '#666';
-
-        try {
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.status === 'ok') {
-                    statusLabel.value = 'Connected! Version: ' + (data.version || 'unknown');
-                    statusLabel.style.color = 'green';
-                } else {
-                    statusLabel.value = 'Server responded but status not OK';
-                    statusLabel.style.color = 'orange';
-                }
-            } else {
-                statusLabel.value = 'Server error: ' + response.status;
-                statusLabel.style.color = 'red';
-            }
-        } catch (e) {
-            statusLabel.value = 'Connection failed: ' + e.message;
-            statusLabel.style.color = 'red';
-        }
-    }
-};
-]]>
-</script>
 
 </vbox>
