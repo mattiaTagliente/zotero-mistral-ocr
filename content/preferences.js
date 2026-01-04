@@ -89,7 +89,7 @@ var MistralOCR_Prefs = {
                 const data = await response.json();
                 if (data.status === 'ok') {
                     if (statusLabel) {
-                        statusLabel.value = 'Connected! Version: ' + (data.version || 'unknown');
+                        statusLabel.value = 'Connected! Server version: ' + (data.version || 'unknown');
                         statusLabel.style.color = 'green';
                     }
                 } else {
@@ -105,9 +105,53 @@ var MistralOCR_Prefs = {
                 }
             }
         } catch (e) {
+            // Server not running - try to start it
             if (statusLabel) {
-                statusLabel.value = 'Connection failed: ' + e.message;
-                statusLabel.style.color = 'red';
+                statusLabel.value = 'Server not running. Starting...';
+                statusLabel.style.color = '#666';
+            }
+
+            // Try to start the server using MistralOCR global object
+            if (typeof MistralOCR !== 'undefined' && MistralOCR.startServer) {
+                try {
+                    const started = await MistralOCR.startServer();
+                    if (started) {
+                        // Server started, test again
+                        try {
+                            const response = await fetch(url, {
+                                method: 'GET',
+                                headers: { 'Accept': 'application/json' }
+                            });
+                            if (response.ok) {
+                                const data = await response.json();
+                                if (statusLabel) {
+                                    statusLabel.value = 'Connected! Server version: ' + (data.version || 'unknown');
+                                    statusLabel.style.color = 'green';
+                                }
+                            }
+                        } catch (e2) {
+                            if (statusLabel) {
+                                statusLabel.value = 'Server started but connection still failed';
+                                statusLabel.style.color = 'orange';
+                            }
+                        }
+                    } else {
+                        if (statusLabel) {
+                            statusLabel.value = 'Failed to start server. Check configuration.';
+                            statusLabel.style.color = 'red';
+                        }
+                    }
+                } catch (startError) {
+                    if (statusLabel) {
+                        statusLabel.value = 'Error starting server: ' + startError.message;
+                        statusLabel.style.color = 'red';
+                    }
+                }
+            } else {
+                if (statusLabel) {
+                    statusLabel.value = 'Server not running (restart Zotero to enable auto-start)';
+                    statusLabel.style.color = 'orange';
+                }
             }
         }
     }
