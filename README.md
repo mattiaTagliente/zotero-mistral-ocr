@@ -41,7 +41,7 @@ pip install mistral-ocr-zotero
 
 ### 2. Install the Zotero Plugin
 
-1. Download the latest `zotero-mistral-ocr.xpi` from [Releases](https://github.com/mattiaTagliente/zotero-mistral-ocr/releases)
+1. Download the latest `zotero-mistral-ocr.xpi` from [Releases](https://github.com/mattiaTagliente/zotero-plugin-mistral-ocr/releases)
 2. In Zotero, go to **Tools > Add-ons**
 3. Click the gear icon and select **Install Add-on From File...**
 4. Select the downloaded `.xpi` file
